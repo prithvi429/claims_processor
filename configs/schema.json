@@ -1,9 +1,8 @@
 {
-  "claim_id": "str",
-  "incident_date": "str",
-  "claim_amount": "float",
-  "damage_description": "str",
-  "summary": "str",
-  "confidence": "float",
-  "status": "str"
+  "claim_id": "string",
+  "claim_date": "string",
+  "claim_amount": "number",
+  "policy_number": "string",
+  "insured_name": "string",
+  "incident_description": "string"
 }

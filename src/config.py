@@ -1,34 +1,52 @@
 import os
 import json
-import yaml
 from dotenv import load_dotenv
 
-load_dotenv()  # Load .env file
+# Load environment variables from .env
+load_dotenv()
 
-# Paths (relative to project root)
-CONFIG_DIR = "../configs"
-DATA_DIR = "../data"
-LOGS_DIR = "../logs"
-DB_DIR = "../db"
+# Define key directories
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_DIR = os.path.join(BASE_DIR, "configs")
+DATA_DIR = os.getenv("DATA_DIR", os.path.join(BASE_DIR, "data"))
 
-# Load schema
-with open(os.path.join(CONFIG_DIR, "schema.json"), "r") as f:
-    CLAIM_SCHEMA = json.load(f)
+# Initialize and load CLAIM_SCHEMA from configs/schema.json if available
+CLAIM_SCHEMA = {}
+schema_path = os.path.join(CONFIG_DIR, "schema.json")
+try:
+    if os.path.exists(schema_path):
+        with open(schema_path, "r", encoding="utf-8") as f:
+            CLAIM_SCHEMA = json.load(f)
+    else:
+        CLAIM_SCHEMA = {}
+except Exception:
+    CLAIM_SCHEMA = {}
 
-# Load prompts
-with open(os.path.join(CONFIG_DIR, "prompts.yaml"), "r") as f:
-    PROMPTS = yaml.safe_load(f)
+# Load prompts if present
+PROMPTS_PATH = os.path.join(CONFIG_DIR, "prompts.yaml")
+if os.path.exists(PROMPTS_PATH):
+    with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
+        PROMPTS = f.read()
+else:
+    PROMPTS = "Summarize and normalize extracted insurance claim data."
 
-# Load rules
-with open(os.path.join(CONFIG_DIR, "rules.yaml"), "r") as f:
-    RULES = yaml.safe_load(f)
-
-# Environment vars
+# Environment-backed config
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", RULES.get("confidence_threshold", 0.8)))
-MAX_CLAIM_AMOUNT = float(os.getenv("MAX_CLAIM_AMOUNT", RULES.get("max_amount", 100000)))
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_DIR}/claims.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///db/claims.db")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+try:
+    CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", 0.8))
+except (TypeError, ValueError):
+    CONFIDENCE_THRESHOLD = 0.8
 
-# Logging setup (imported from utils)
-from .utils.logging import setup_logging
-setup_logging()
+__all__ = [
+    "BASE_DIR",
+    "CONFIG_DIR",
+    "DATA_DIR",
+    "CLAIM_SCHEMA",
+    "PROMPTS",
+    "OPENAI_API_KEY",
+    "DATABASE_URL",
+    "LOG_LEVEL",
+    "CONFIDENCE_THRESHOLD",
+]

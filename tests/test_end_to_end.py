@@ -1,7 +1,7 @@
 import pytest
 import json
 from pathlib import Path
-from src.main import main
+from main import main
 from src.storage.output import store_output
 from src.storage.hitl import query_hitl
 from tests.conftest import temp_dir, mock_openai, mocker
@@ -57,7 +57,7 @@ def test_end_to_end_pipeline(mock_args, mock_ingest, mock_extract, mock_process,
     mocker.patch('src.storage.output.store_output', return_value=mock_output_path)
     
     # Run main (with mocked args)
-    from src.main import main
+    from main import main
     main()
     
     # Verify output was 'stored'
