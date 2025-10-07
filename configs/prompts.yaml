@@ -1,2 +1,5 @@
-summarize: |
-  You are given OCR output for an insurance claim. Summarize key facts (claim_id, date, claimant, amount) in JSON.
+summarization: |
+  Summarize this insurance claim: {text}.
+  Normalize to JSON: claim_id, incident_date (ISO), claim_amount (number), damage_description.
+  Rate confidence 0-1. Flag if low (<0.8) for review.
+  Output only JSON.

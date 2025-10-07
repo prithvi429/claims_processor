@@ -1,8 +1,40 @@
 version: '3.8'
+
 services:
   app:
-    build: .
-    volumes:
-      - .:/app
+    build:
+      context: .  # Build from current directory (project root)
+      dockerfile: Dockerfile
+    image: claims-processor:latest  # Tag for the image
+    container_name: claims-processor
     environment:
-      - OPENAI_API_KEY
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # From .env
+      - CONFIDENCE_THRESHOLD=0.8
+      - DATABASE_URL=sqlite:///app/db/claims.db  # Relative to container
+    volumes:
+      - ./data:/app/data  # Persist inputs/outputs
+      - ./db:/app/db      # Persist SQLite DB
+      - ./.env:/app/.env  # Mount env file (secrets)
+      - ./logs:/app/logs  # Persist logs
+    working_dir: /app
+    # Uncomment for interactive shell
+    # stdin_open: true
+    # tty: true
+    # For running tests
+    # command: pytest tests/ -v
+
+  # Optional: Add PostgreSQL for production DB (replace SQLite)
+  # db:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: claims
+  #     POSTGRES_USER: user
+  #     POSTGRES_PASSWORD: password
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# Volumes for optional DB
+# volumes:
+#   pgdata:

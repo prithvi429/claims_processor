@@ -1,3 +1,9 @@
 {
-  "fields": ["claim_id", "date", "claimant_name", "amount", "description"]
+  "claim_id": "str",
+  "incident_date": "str",
+  "claim_amount": "float",
+  "damage_description": "str",
+  "summary": "str",
+  "confidence": "float",
+  "status": "str"
 }
