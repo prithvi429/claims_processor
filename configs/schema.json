@@ -1,0 +1,3 @@
+{
+  "fields": ["claim_id", "date", "claimant_name", "amount", "description"]
+}

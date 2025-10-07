@@ -1,0 +1,2 @@
+summarize: |
+  You are given OCR output for an insurance claim. Summarize key facts (claim_id, date, claimant, amount) in JSON.

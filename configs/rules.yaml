@@ -1,0 +1,3 @@
+rules:
+  - name: amount_limit
+    max_amount: 10000
