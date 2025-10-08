@@ -1,66 +1,79 @@
-import sqlite3
-from datetime import datetime, timedelta
-from ..config import CONFIDENCE_THRESHOLD, MAX_CLAIM_AMOUNT, DATABASE_URL
-from ..utils.logging import logger
+"""
+src/validation/validator.py
+--------------------------------
+Validates extracted and processed claim data.
+Handles rule-based checks, confidence thresholds, and HITL (Human-in-the-Loop) fallback.
+"""
 
-def validate_and_review(processed):
-    """
-    Apply business rules, check confidence, flag for HITL.
-    Updates processed["status"] and stores in DB if needed.
-    """
-    errors = []
-    confidence = processed.get("confidence", 0.0)
-    
-    # Rule: Amount limit
-    if processed.get("claim_amount", 0) > MAX_CLAIM_AMOUNT:
-        errors.append("Amount exceeds policy limit")
-    
-    # Rule: Date within window (assume current date as reference)
-    incident_date = processed.get("incident_date")
-    if incident_date:
-        try:
-            inc_date = datetime.fromisoformat(incident_date)
-            if datetime.now() - inc_date > timedelta(days=30):  # Example: 30-day filing window
-                errors.append("Incident date outside filing window")
-        except ValueError:
-            errors.append("Invalid date format")
-    else:
-        errors.append("Missing incident date")
-    
-    # Confidence check
-    if confidence < CONFIDENCE_THRESHOLD or errors:
-        processed["status"] = "review"
-        # Store for HITL
-        store_for_hitl(processed, errors)
-        logger.warning(f"Flagged for review: {processed['claim_id']} - Errors: {errors}")
-    else:
-        processed["status"] = "ready_for_approval"
-        logger.info(f"Auto-approved: {processed['claim_id']}")
-    
-    return processed
+from typing import Dict, Any, List
+from src.config import CONFIDENCE_THRESHOLD, MAX_CLAIM_AMOUNT, MIN_CLAIM_AMOUNT
+from src.utils.logging import logger
 
-def store_for_hitl(processed, errors):
-    """Store low-confidence claims in SQLite for HITL."""
-    conn = sqlite3.connect(DATABASE_URL.replace("sqlite:///", ""))  # Adjust for path
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS claims (
-            claim_id TEXT PRIMARY KEY,
-            extracted_data TEXT,
-            confidence REAL,
-            status TEXT,
-            review_notes TEXT
-        )
-    """)
-    cursor.execute("""
-        INSERT OR REPLACE INTO claims 
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        processed["claim_id"],
-        json.dumps(processed),
-        processed["confidence"],
-        processed["status"],
-        "; ".join(errors)
-    ))
-    conn.commit()
-    conn.close()
+
+def validate_and_review(processed: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate processed claim data using business rules.
+    If validation fails or confidence is low, flag for human review.
+    """
+    errors: List[str] = []
+    validated = processed.copy()
+
+    logger.info("🧩 Running validation checks...")
+
+    # Example checks — adapt to your real schema
+    amount = validated.get("amount")
+    confidence = validated.get("confidence", 1.0)
+
+    # --- Check 1: Amount range ---
+    try:
+        if amount is not None:
+            amount = float(amount)
+            if amount > MAX_CLAIM_AMOUNT:
+                errors.append(f"Amount exceeds limit ({amount} > {MAX_CLAIM_AMOUNT})")
+            elif amount < MIN_CLAIM_AMOUNT:
+                errors.append(f"Amount below minimum ({amount} < {MIN_CLAIM_AMOUNT})")
+        else:
+            errors.append("Missing claim amount")
+    except Exception as e:
+        errors.append(f"Invalid amount value: {e}")
+
+    # --- Check 2: Confidence ---
+    try:
+        if confidence < CONFIDENCE_THRESHOLD:
+            errors.append(f"Low model confidence: {confidence:.2f}")
+    except Exception as e:
+        errors.append(f"Invalid confidence value: {e}")
+
+    # --- If errors, store for HITL ---
+    if errors:
+        logger.warning(f"⚠️ Validation failed for claim: {errors}")
+        store_for_hitl(validated, errors)
+    else:
+        logger.info("✅ Validation passed successfully.")
+
+    validated["validation_errors"] = errors
+    return validated
+
+
+# --------------------------------------------------------------------------
+# HITL Storage Function (Safe for missing fields)
+# --------------------------------------------------------------------------
+def store_for_hitl(processed: dict, errors: list):
+    """
+    Store low-confidence or failed claims into HITL database for human review.
+    Safe for missing fields.
+    """
+    from src.storage.hitl import insert_hitl_record
+
+    claim_id = processed.get("claim_id", f"temp_{int(__import__('time').time())}")
+    claim_amount = processed.get("amount", None)
+    claim_date = processed.get("date", None)
+
+    insert_hitl_record(
+        claim_id,
+        claim_amount,
+        claim_date,
+        errors,
+    )
+
+    logger.info(f"🗂️ Stored claim {claim_id} for human review with {len(errors)} errors.")
