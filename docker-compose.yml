@@ -1,39 +1,38 @@
-version: "3.8"
-
 services:
-  claims_app:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: claims-processor:latest
-    container_name: claims-processor
+    container_name: claims_app
+    working_dir: /app
+    entrypoint: ["python", "-m", "src.main"]
+    command: ["--input", "data/test"]
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=sqlite:///app/db/claims.db
-      - CONFIDENCE_THRESHOLD=0.8
+      - PYTHONUNBUFFERED=1
     volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./db:/app/db
+    tty: true
+    stdin_open: true
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claims_dashboard
+    working_dir: /app
+    entrypoint: ["streamlit", "run", "src/analytics/analyze_dashboard.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
       - ./data:/app/data
       - ./db:/app/db
       - ./logs:/app/logs
-      - ./.env:/app/.env
-    working_dir: /app
-    command: ["--input", "data/test/mock_claim.txt"]
-    # Optional interactive shell:
-    # stdin_open: true
-    # tty: true
-
-  # Optional: PostgreSQL DB for future scale-up
-  # db:
-  #   image: postgres:15
-  #   environment:
-  #     POSTGRES_DB: claims
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-
-# Optional named volumes (if Postgres used)
-# volumes:
-#   pgdata:
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - app

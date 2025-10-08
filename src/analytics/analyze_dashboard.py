@@ -1,93 +1,78 @@
-import os
-import json
-import sqlite3
-import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
+import pandas as pd
+import json
+import os
+import sqlite3
 from pathlib import Path
 
-# ==========================
-# PATHS
-# ==========================
-BASE_DIR = Path(__file__).resolve().parents[2]
-DATA_PROCESSED = BASE_DIR / "data" / "processed"
-DB_PATH = BASE_DIR / "db" / "claims.db"
-LOG_PATH = BASE_DIR / "logs" / "app.log"
+# Define paths
+DATA_PROCESSED_DIR = Path("data/processed")
+DB_PATH = Path("db/claims.db")
 
-# ==========================
-# HELPER FUNCTIONS
-# ==========================
-def load_processed_claims():
-    rows = []
-    for file in DATA_PROCESSED.glob("processed_*.json"):
-        try:
-            with open(file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            rows.append({
-                "file_name": file.name,
-                "claim_id": data.get("claim_id", "N/A"),
-                "error": data.get("error", ""),
-                "validation_errors": ", ".join(data.get("validation_errors", [])),
-                "has_summary": "summary" in data,
-                "has_normalized": "normalized" in data,
-            })
-        except Exception as e:
-            rows.append({"file_name": file.name, "error": str(e)})
-    return pd.DataFrame(rows) if rows else pd.DataFrame(columns=["file_name", "claim_id", "error", "validation_errors"])
-
-def load_hitl_data():
-    if not DB_PATH.exists():
-        return pd.DataFrame(columns=["claim_id", "amount", "date", "errors"])
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql("SELECT * FROM hitl_claims", conn)
-    conn.close()
-    return df
-
-# ==========================
-# DASHBOARD LAYOUT
-# ==========================
 st.set_page_config(page_title="Claims Processor Dashboard", layout="wide")
 
-st.title("📊 Intelligent Claims Processing Dashboard")
-st.markdown("Real-time analytics for processed insurance claims")
+st.title("💼 Intelligent Claims Processing Dashboard")
+st.markdown("Monitor your AI-powered claim extraction, validation, and approval pipeline in real-time.")
 
-# Load data
-processed_df = load_processed_claims()
-hitl_df = load_hitl_data()
+# ========== SECTION 1: Summary from JSON Files ==========
+st.header("📊 Processed Claim Summary")
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Processed", len(processed_df))
-col2.metric("HITL Reviews", len(hitl_df))
-col3.metric("Validation Failures", processed_df["validation_errors"].astype(bool).sum())
+summary_path = DATA_PROCESSED_DIR / "summary.json"
 
-# ==========================
-# SECTION 1: Processed Claims
-# ==========================
-st.subheader("🧾 Processed Claims Summary")
-if not processed_df.empty:
-    st.dataframe(processed_df, use_container_width=True)
-    fig, ax = plt.subplots(figsize=(6, 3))
-    processed_df["error"].value_counts().plot(kind="bar", ax=ax, title="Error Distribution")
-    st.pyplot(fig)
+if summary_path.exists():
+    with open(summary_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    df = pd.DataFrame(data)
+
+    success_count = len(df[df["status"] == "success"])
+    failed_count = len(df[df["status"] == "failed"])
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("✅ Successful Claims", success_count)
+    col2.metric("❌ Failed Claims", failed_count)
+    col3.metric("📁 Total Processed", len(df))
+
+    st.dataframe(df[["file", "status", "output"]], use_container_width=True)
 else:
-    st.info("No processed claims found yet. Run the pipeline first.")
+    st.warning("No processed summary found yet. Run your claim processing first.")
 
-# ==========================
-# SECTION 2: HITL (Human in the Loop)
-# ==========================
-st.subheader("👨‍💼 Human-in-the-Loop Review Queue")
-if not hitl_df.empty:
-    st.dataframe(hitl_df, use_container_width=True)
-else:
-    st.success("No pending HITL reviews — all claims validated successfully!")
+# ========== SECTION 2: Processed JSONs ==========
+st.header("🧾 Claim Data Explorer")
 
-# ==========================
-# SECTION 3: Logs Viewer
-# ==========================
-st.subheader("🧠 System Logs")
-if LOG_PATH.exists():
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        log_lines = f.readlines()[-50:]
-    st.text("".join(log_lines))
+processed_files = list(DATA_PROCESSED_DIR.glob("processed_*.json"))
+
+if processed_files:
+    selected_file = st.selectbox("Select a processed claim file", processed_files)
+    with open(selected_file, "r", encoding="utf-8") as f:
+        claim_data = json.load(f)
+    st.json(claim_data)
 else:
-    st.warning("No logs found yet.")
+    st.info("No processed claim JSONs found yet.")
+
+# ========== SECTION 3: Human-in-the-Loop (HITL) Records ==========
+st.header("🧍 Human-in-the-Loop (HITL) Review Records")
+
+if DB_PATH.exists():
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        df_hitl = pd.read_sql_query("SELECT * FROM hitl_claims", conn)
+        if not df_hitl.empty:
+            st.dataframe(df_hitl, use_container_width=True)
+        else:
+            st.info("No HITL records yet — all claims validated successfully 🎉")
+    except Exception as e:
+        st.error(f"Error reading HITL DB: {e}")
+    finally:
+        conn.close()
+else:
+    st.warning("HITL database not found yet. It will be created after validation step.")
+
+# ========== SECTION 4: Insights ==========
+st.header("📈 Insights")
+
+if summary_path.exists():
+    st.bar_chart(df["status"].value_counts())
+    st.caption("Claim success vs failure rates")
+else:
+    st.info("Run at least one batch before viewing insights.")

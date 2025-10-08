@@ -1,0 +1,5 @@
+Claim ID: MOCK-1234
+Date: 2025-10-07
+Claimant: Jane Doe
+Amount: $1234.56
+Description: Test claim text.

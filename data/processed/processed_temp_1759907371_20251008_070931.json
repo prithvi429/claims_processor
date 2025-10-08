@@ -1,0 +1,8 @@
+{
+  "error": "RateLimitError or insufficient quota",
+  "summary": "OpenAI quota exceeded or rate-limited. Skipping GenAI step.",
+  "raw_output": "",
+  "validation_errors": [
+    "Missing claim amount"
+  ]
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "file": "data/test/AGENT Inpatient UB 04 Claim Example.pdf",
+    "status": "success",
+    "output": "/app/data/processed/processed_temp_1759907643_20251008_071403.json"
+  },
+  {
+    "file": "data/test/mock_claim.txt",
+    "status": "success",
+    "output": "/app/data/processed/processed_temp_1759907647_20251008_071407.json"
+  },
+  {
+    "file": "data/test/Property Claim Form 9-14-2012 template.pdf",
+    "status": "success",
+    "output": "/app/data/processed/processed_temp_1759907651_20251008_071411.json"
+  }
+]
